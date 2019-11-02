@@ -107,10 +107,10 @@ class App extends React.Component {
       history: [state],
     }
 
-    this.handleColumnClick = this.handleColumnClick.bind(this);
-    this.handleFreeCellClick = this.handleFreeCellClick.bind(this);
-    this.handleHomeCellClick = this.handleHomeCellClick.bind(this);
-    this.handleFlowerClick = this.handleFlowerClick.bind(this);
+    // this.handleColumnClick = this.handleColumnClick.bind(this);
+    // this.handleFreeCellClick = this.handleFreeCellClick.bind(this);
+    // this.handleHomeCellClick = this.handleHomeCellClick.bind(this);
+    // this.handleFlowerClick = this.handleFlowerClick.bind(this);
   }
 
   getLastState = () => this.state.history.slice(-1)[0];
@@ -206,7 +206,7 @@ class App extends React.Component {
     const cell = home[cellIndex];
     const card = inMotion[0];
 
-    const isValidMove = card.suit === cell.suit && card.value === (cell.value + 1);
+    const isValidMove = card && card.suit === cell.suit && card.value === (cell.value + 1);
 
     const newCellState = (isValidMove && card) || cell;
     const newInMotion = (!isValidMove && inMotion) || null;
@@ -237,10 +237,12 @@ class App extends React.Component {
   }
 
   allDragonsFree = dragon => {
-    const {freeCells, columns} = this.getLastState();
+    const {freeCells, columns, inMotion} = this.getLastState();
     const freeCards = freeCells.concat(columns.map(column => column.slice(-1)[0]));
     const freeDragons = freeCards.filter(card => card && card.suit === dragon);
-    return freeDragons.length === 4 && freeCells.some(cell => cell === null || cell.suit === dragon);
+    return !inMotion && 
+      freeDragons.length === 4 && 
+      freeCells.some(cell => cell === null || cell.suit === dragon);
   }
 
   handleDragonsClick = dragon => () => {
@@ -248,7 +250,6 @@ class App extends React.Component {
 
     // remove all dragon cards from table
     const freeCellsNoDragon = freeCells.map(cell => cell && cell.suit === dragon ? null : cell);
-    console.log(columns);
     const newColumns = columns.map(column =>
       column.length && column[column.length-1].suit === dragon
       ? column.slice(0, -1)
@@ -269,6 +270,77 @@ class App extends React.Component {
   isWinningState = () => {
     const {columns, inMotion} = this.getLastState()
     return !inMotion && columns.every(col => col.length===0);
+  }
+
+  autoComplete = () => {
+    // when free cards on the table are the next card for home spots, move them there
+    const {inMotion, columns, freeCells, home} = this.getLastState();
+    if (inMotion) {
+      return; // can't autocomplete when holding a card
+    }
+
+    columns.forEach((column, index) => {
+      if (!column.length) {
+        return;
+      }
+      const lastCard = column.slice(-1)[0];
+      switch (lastCard.suit) {
+        case '@': // TODO: fix hardcoding
+          [
+            this.handleColumnClick(index)(column.length-1),
+            this.handleFlowerClick,
+          ].reduce((p, f) => p.then(f), Promise.resolve());
+          break;
+        case 'A':
+        case 'B':
+        case 'C':
+          // find home column that matches suit
+          let homeIndex = home
+            .map((cell, index) => cell.suit === lastCard.suit ? index : null)
+            .filter(x => x !== null)[0];
+          if (! (home[homeIndex].value + 1 === lastCard.value)) {
+            return;
+          }
+          [
+            this.handleColumnClick(index)(column.length-1),
+            this.handleHomeCellClick(homeIndex)
+          ].reduce((p, f) => p.then(f), Promise.resolve());
+          break;
+        default:
+          break;
+      }
+    })
+
+    freeCells.forEach((freeCell, index) => {
+      if (!freeCell) {
+        return;
+      }
+      switch (freeCell.suit) {
+        case '@': // TODO: fix hardcoding
+          [
+            this.handleFreeCellClick(index),
+            this.handleFlowerClick,
+          ].reduce((p, f) => p.then(f), Promise.resolve());
+          break;
+        case 'A':
+        case 'B':
+        case 'C':
+          // find home column that matches suit
+          let homeIndex = home
+            .map((cell, index) => cell.suit === freeCell.suit ? index : null)
+            .filter(x => x !== null)[0];
+          if (! (home[homeIndex].value + 1 === freeCell.value)) {
+            return;
+          }
+          [
+            this.handleFreeCellClick(index),
+            this.handleHomeCellClick(homeIndex)
+          ].reduce((p, f) => p.then(f), Promise.resolve());
+          break;
+        default:
+          break;
+      }
+    })
   }
 
   render() {
@@ -314,7 +386,8 @@ class App extends React.Component {
             </td>
             <td>
               <button onClick={this.goBackMoves(1)}>undo</button><br/>
-              <button onClick={this.rollBackMoves(1)}>hard undo</button>
+              <button onClick={this.rollBackMoves(1)}>hard undo</button><br/>
+              <button onClick={this.autoComplete}>auto move</button>
             </td>
           </tr>
         </Table>
