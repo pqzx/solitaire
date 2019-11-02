@@ -29,17 +29,18 @@ const deal = () => {
 }
 
 class Card {
-  constructor(suit, value=0) {
+  constructor(suit, value=0, free=true) {
     this.suit = suit;
     this.value = value;
     this.onBoard = true;
+    this.free = free;
   }
 }
 
 // card1 is valid child of card2: this means card1 and card2 are both numeric cards with different suits
 // and card1's value is exactly 1 less than card2's value
 const isValidChild = (card1, card2) =>
-  card1.suit !== card2.suit && card1.value === card2.value-1;
+  card1.suit !== card2.suit && card1.value !== 0 && card1.value === card2.value-1;
 
 
 //const isValidMove = (card1, card2) =>
@@ -97,7 +98,7 @@ class App extends React.Component {
 
     this.state = {
       columns: deal(),
-      freeCells: [null, null, null, null, null],
+      freeCells: [null, null, null],
       flower: null,
       home: suits.map(suit => new Card(suit, 0)),
       inMotion: null,
@@ -205,18 +206,63 @@ class App extends React.Component {
     });
   }
 
+  allDragonsFree = dragon => {
+    const {freeCells, columns} = this.state;
+    const freeCards = freeCells.concat(columns.map(column => column.slice(-1)[0]));
+    const freeDragons = freeCards.filter(card => card && card.suit === dragon);
+    return freeDragons.length === 4 && freeCells.some(cell => cell === null || cell.suit === dragon);
+  }
+
+  handleDragonsClick = dragon => () => {
+    const {freeCells, columns} = this.state;
+
+    // remove all dragon cards from table
+    const freeCellsNoDragon = freeCells.map(cell => cell && cell.suit === dragon ? null : cell);
+    console.log(columns);
+    const newColumns = columns.map(column =>
+      column.length && column[column.length-1].suit === dragon
+      ? column.slice(0, -1)
+      : column
+    );
+
+    // fill first free freeCell with dragons and make unmoveable
+    const freeIndex = freeCellsNoDragon.indexOf(null);
+    const newFreeCells = freeCellsNoDragon.map((cell, i) => i === freeIndex ? new Card(dragon, 0, false) : cell);
+
+    this.setState({
+      freeCells: newFreeCells,
+      columns: newColumns,
+    });
+  }
+
+  isWinningState = () => {
+    const {columns} = this.state;
+    return columns.every(col => col.length===0);
+  }
+
   render() {
     const {columns, freeCells, flower, home, inMotion} = this.state;
+    const isWin = this.isWinningState();
     return (
       <div>
+        {isWin && <h1>You win!</h1>}
         <table>
           <tr>
-            {freeCells.map((cell, i) => <td><Cardcomp card={cell} canMove={true} onClick={this.handleFreeCellClick(i)} /></td>)}
+            {freeCells.map((cell, i) => <td><Cardcomp card={cell} canMove={cell===null || cell.free} onClick={this.handleFreeCellClick(i)} /></td>)}
+          </tr>
+          <tr>
+            {dragons.map(dragon =>
+              <td>
+                <button disabled={!this.allDragonsFree(dragon)} onClick={this.handleDragonsClick(dragon)}>
+                  Gather {dragon}s
+                </button>
+              </td>
+            )}
           </tr>
         </table>
         <table>
           <tr>
-            <td><Cardcomp card={flower} canMove={true} onClick={this.handleFlowerClick} /></td>
+            <td>@: <Cardcomp card={flower} canMove={true} onClick={this.handleFlowerClick} /></td>
           </tr>
         </table>
         <table>
@@ -230,7 +276,6 @@ class App extends React.Component {
           </tr>
         </table>
         {inMotion && <Hand cards={inMotion} />}
-        
       </div>
     )
   }
