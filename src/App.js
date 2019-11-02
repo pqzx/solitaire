@@ -1,11 +1,11 @@
 import React from 'react';
 import './App.css';
 
-const createDeck = () => {
-  const suits = ['A', 'B', 'C'];
-  const dragons = ['X', 'Y', 'Z'];
-  const numbers = [...Array(10).keys()].slice(1);
+const suits = ['A', 'B', 'C'];
+const dragons = ['X', 'Y', 'Z'];
+const numbers = [...Array(10).keys()].slice(1);
 
+const createDeck = () => {
   // a deck is made up of 4 of each dragon, 1-9 for each suit and a flower card
   const cards = [
     dragons.map(x => Array(4).fill(new Card(x))),
@@ -67,10 +67,6 @@ const Cardcomp = props => {
   )
 }
   
-
-const Empty = () =>
-  <button>Empty</button>
-
 class Column extends React.Component {
   canMove(index) {
     return index === (this.props.cards.length - 1) || 
@@ -92,7 +88,8 @@ class Column extends React.Component {
   }
 }
 
-const Hand = (props) => props.cards.map(card => <Cardcomp card={card} canMove={false} onClick={console.log('clicked')} />)
+const Hand = props => 
+  props.cards.map(card => <Cardcomp card={card} canMove={false} />)
 
 class App extends React.Component {
   constructor(props) {
@@ -102,12 +99,14 @@ class App extends React.Component {
       columns: deal(),
       freeCells: [null, null, null, null, null],
       flower: null,
-      home: [null, null, null],
+      home: suits.map(suit => new Card(suit, 0)),
       inMotion: null,
     }
 
     this.handleColumnClick = this.handleColumnClick.bind(this);
     this.handleFreeCellClick = this.handleFreeCellClick.bind(this);
+    this.handleHomeCellClick = this.handleHomeCellClick.bind(this);
+    this.handleFlowerClick = this.handleFlowerClick.bind(this);
   }
 
   handleColumnClick = columnIndex => cardIndex => () =>{
@@ -168,6 +167,44 @@ class App extends React.Component {
     })
   }
 
+  handleHomeCellClick = cellIndex => () => {
+    const {home, inMotion} = this.state;
+
+    if (!inMotion || inMotion.length !== 1) {
+      return;
+    }
+
+    const cell = home[cellIndex];
+    const card = inMotion[0];
+
+    const isValidMove = card.suit === cell.suit && card.value === (cell.value + 1);
+
+    const newCellState = (isValidMove && card) || cell;
+    const newInMotion = (!isValidMove && inMotion) || null;
+
+    const newHomeState = home.map((cell, i) => i === cellIndex ? newCellState : cell);
+
+    this.setState({
+      home: newHomeState,
+      inMotion: newInMotion,
+    })
+  }
+
+  handleFlowerClick = () => {
+    const {inMotion} = this.state;
+    if (!inMotion || inMotion[0].suit !== '@') {
+      return;
+    };
+
+    const newflower = inMotion[0];
+    const newInMotion = null;
+
+    this.setState({
+      flower: newflower,
+      inMotion: newInMotion,
+    });
+  }
+
   render() {
     const {columns, freeCells, flower, home, inMotion} = this.state;
     return (
@@ -179,12 +216,12 @@ class App extends React.Component {
         </table>
         <table>
           <tr>
-            <td>{(flower && <Cardcomp card={flower} />) || <Empty />}</td>
+            <td><Cardcomp card={flower} canMove={true} onClick={this.handleFlowerClick} /></td>
           </tr>
         </table>
         <table>
           <tr>
-            {home.map(cell => (cell && <td><Cardcomp card={cell} /></td>) || <td><Empty /></td>)}
+            {home.map((cell, i) => (cell && <td><Cardcomp card={cell} canMove={true} onClick={this.handleHomeCellClick(i)} /></td>))}
           </tr>
         </table>
         <table>
