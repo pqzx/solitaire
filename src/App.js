@@ -78,9 +78,15 @@ class Column extends React.Component {
   }
   
   render() {
+    const cards = this.props.cards;
     return (
       <ul>
-        {this.props.cards.map((card, i) => <li><Cardcomp card={card} canMove={this.canMove(i)} onClick={this.props.onCardClick(i)} /></li>)}
+        {
+          (cards.length && 
+            cards.map((card, i) => 
+            <li><Cardcomp card={card} canMove={this.canMove(i)} onClick={this.props.onCardClick(i)} /></li>))
+          || <li><Cardcomp card={null} onClick={this.props.onCardClick(0)} /></li>
+        }
       </ul>
     )
   }
@@ -94,7 +100,7 @@ class App extends React.Component {
 
     this.state = {
       columns: deal(),
-      freeCells: [null, null, null],
+      freeCells: [null, null, null, null, null],
       flower: null,
       home: [null, null, null],
       inMotion: null,
@@ -111,13 +117,14 @@ class App extends React.Component {
     const card2 = pickedColumn[cardIndex];
 
     const isValidMove = () =>
-      pickedColumn.length - 1 === cardIndex && isValidChild(card1, card2)
+      (pickedColumn.length - 1 === cardIndex && isValidChild(card1, card2)) ||
+      pickedColumn.length === 0;
 
     const newColumn = inMotion
     ? isValidMove()
       ? pickedColumn.concat(inMotion)
       : pickedColumn
-    : pickedColumn.map(({onBoard, ...card}, index) => (index < cardIndex && {onBoard, ...card}) || {onBoard: false, ...card});
+    : pickedColumn.filter((_, i) => i < cardIndex) || [undefined];
 
     const newInMotion = inMotion
     ? isValidMove()
@@ -125,17 +132,11 @@ class App extends React.Component {
       : inMotion
     : pickedColumn.slice(cardIndex, pickedColumn.length);
 
-    const newColumns = (inMotion && isValidMove())
-    ? columns.map((column, i) => 
-        columnIndex === i 
-        ? newColumn 
-        : column.filter(card => card.onBoard) // remove inMotion cards from table
-      )
-    : columns.map((column, i) =>
-        columnIndex === i
-        ? newColumn
-        : column
-      )
+    const newColumns = columns.map((column, i) =>
+      columnIndex === i
+      ? newColumn
+      : column
+    )
 
     this.setState({
       inMotion: newInMotion,
@@ -161,14 +162,10 @@ class App extends React.Component {
 
     const newFreeCells = freeCells.map((cell, i) => i === cellIndex ? newCellState : cell);
 
-    // todo update table
-    // update 
-
     this.setState({
       freeCells: newFreeCells,
       inMotion: newInMotion,
     })
-
   }
 
   render() {
