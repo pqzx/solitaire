@@ -1,4 +1,5 @@
 import React from 'react';
+import { isEqual } from 'lodash';
 import './App.css';
 
 const suits = ['A', 'B', 'C'];
@@ -8,7 +9,7 @@ const numbers = [...Array(10).keys()].slice(1);
 const createDeck = () => {
   // a deck is made up of 4 of each dragon, 1-9 for each suit and a flower card
   const cards = [
-    dragons.map(x => Array(4).fill(new Card(x))),
+    dragons.map(x => Array(4).fill(0).map(_ => new Card(x))),
     suits.map(x => numbers.map(y => new Card(x, y))),
     new Card('@'), // flower card
   ].flat(2);
@@ -28,12 +29,15 @@ const deal = () => {
   return board;
 }
 
+let key = 0;
+const getKey = () => ++key;
+
 class Card {
   constructor(suit, value=0, free=true) {
     this.suit = suit;
     this.value = value;
-    this.onBoard = true;
     this.free = free;
+    this.id = getKey();
   }
 }
 
@@ -47,7 +51,6 @@ const Cardcomp = props => {
     return (
       <button disabled={!props.canMove} onClick={props.onClick}>
         {props.card.suit}{props.card.value || ''}
-        {!props.card.onBoard && '*'}
       </button>
     )
   }
@@ -60,7 +63,7 @@ const Cardcomp = props => {
 
 const Hand = props => 
   <ul>
-    {props.cards.map(card => <li><Cardcomp card={card} canMove={false} /></li>)}
+    {props.cards.map(card => <li key={card.id}><Cardcomp card={card} canMove={false} /></li>)}
   </ul>  
 
 const Table = ({children}) =>
@@ -83,8 +86,8 @@ class Column extends React.Component {
         {
           (cards.length && 
             cards.map((card, i) => 
-            <li><Cardcomp card={card} canMove={this.canMove(i)} onClick={this.props.onCardClick(i)} /></li>))
-          || <li><Cardcomp card={null} onClick={this.props.onCardClick(0)} /></li>
+            <li key={card.id}><Cardcomp card={card} canMove={this.canMove(i)} onClick={this.props.onCardClick(i)} /></li>))
+          || <li key={'0'}><Cardcomp card={null} onClick={this.props.onCardClick(0)} /></li>
         }
       </ul>
     )
@@ -117,6 +120,10 @@ class App extends React.Component {
 
   updateState = (state) => {
     const {history} = this.state;
+    const lastState = history.slice(-1)[0];
+    if (isEqual(state, lastState)) {
+      return;
+    }
     this.setState({
       history: [...history, state]
     });
@@ -125,6 +132,9 @@ class App extends React.Component {
   rollBackMoves = n => () => {
     // hard rewind to a previous state, subsequent states are lost
     const history = this.state.history.slice(0,-n);
+    if (history.length < 1) {
+      return;
+    }
     this.setState({
       history: history,
     });
@@ -348,7 +358,6 @@ class App extends React.Component {
     const isWin = this.isWinningState();
     return (
       <div>
-        {isWin && <h1>You win!</h1>}
         <Table>
           <tr>
             <td>
@@ -360,7 +369,7 @@ class App extends React.Component {
                   {dragons.map(dragon =>
                     <td>
                       <button disabled={!this.allDragonsFree(dragon)} onClick={this.handleDragonsClick(dragon)}>
-                        Gather {dragon}s
+                        ^ {dragon}s
                       </button>
                     </td>
                   )}
@@ -373,7 +382,7 @@ class App extends React.Component {
                   <td><Cardcomp card={flower} canMove={true} onClick={this.handleFlowerClick} /></td>
                 </tr>
                 <tr>
-                  ^@
+                  <td>^ @</td>
                 </tr>
               </Table>
             </td>
@@ -399,6 +408,7 @@ class App extends React.Component {
         </Table>
         <div style={{ height: "2em" }}></div>
         {inMotion && <Hand cards={inMotion} />}
+        {isWin && <h1>You win!</h1>}
       </div>
     )
   }
