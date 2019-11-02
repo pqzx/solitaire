@@ -67,7 +67,19 @@ const Cardcomp = props => {
     </button>
   )
 }
-  
+
+const Hand = props => 
+  <ul>
+    {props.cards.map(card => <li><Cardcomp card={card} canMove={false} /></li>)}
+  </ul>  
+
+const Table = ({children}) =>
+  <table>
+    <tbody>
+      {children}
+    </tbody>
+  </table>
+
 class Column extends React.Component {
   canMove(index) {
     return index === (this.props.cards.length - 1) || 
@@ -88,9 +100,6 @@ class Column extends React.Component {
     )
   }
 }
-
-const Hand = props => 
-  props.cards.map(card => <Cardcomp card={card} canMove={false} />)
 
 class App extends React.Component {
   constructor(props) {
@@ -227,7 +236,7 @@ class App extends React.Component {
 
     // fill first free freeCell with dragons and make unmoveable
     const freeIndex = freeCellsNoDragon.indexOf(null);
-    const newFreeCells = freeCellsNoDragon.map((cell, i) => i === freeIndex ? new Card(dragon, 0, false) : cell);
+    const newFreeCells = freeCellsNoDragon.map((cell, i) => i === freeIndex ? new Card(`${dragon}*`, 0, false) : cell);
 
     this.setState({
       freeCells: newFreeCells,
@@ -246,35 +255,47 @@ class App extends React.Component {
     return (
       <div>
         {isWin && <h1>You win!</h1>}
-        <table>
+        <Table>
           <tr>
-            {freeCells.map((cell, i) => <td><Cardcomp card={cell} canMove={cell===null || cell.free} onClick={this.handleFreeCellClick(i)} /></td>)}
+            <td>
+              <Table>
+                <tr>
+                  {freeCells.map((cell, i) => <td><Cardcomp card={cell} canMove={cell===null || cell.free} onClick={this.handleFreeCellClick(i)} /></td>)}
+                </tr>
+                <tr>
+                  {dragons.map(dragon =>
+                    <td>
+                      <button disabled={!this.allDragonsFree(dragon)} onClick={this.handleDragonsClick(dragon)}>
+                        Gather {dragon}s
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              </Table>  
+            </td>
+            <td>
+              <Table>
+                <tr>
+                  <td>@: <Cardcomp card={flower} canMove={true} onClick={this.handleFlowerClick} /></td>
+                </tr>
+              </Table>
+            </td>
+            <td>
+              <Table>
+                <tr>
+                  {home.map((cell, i) => (cell && <td><Cardcomp card={cell} canMove={true} onClick={this.handleHomeCellClick(i)} /></td>))}
+                </tr>
+              </Table>
+            </td>
           </tr>
-          <tr>
-            {dragons.map(dragon =>
-              <td>
-                <button disabled={!this.allDragonsFree(dragon)} onClick={this.handleDragonsClick(dragon)}>
-                  Gather {dragon}s
-                </button>
-              </td>
-            )}
-          </tr>
-        </table>
-        <table>
-          <tr>
-            <td>@: <Cardcomp card={flower} canMove={true} onClick={this.handleFlowerClick} /></td>
-          </tr>
-        </table>
-        <table>
-          <tr>
-            {home.map((cell, i) => (cell && <td><Cardcomp card={cell} canMove={true} onClick={this.handleHomeCellClick(i)} /></td>))}
-          </tr>
-        </table>
-        <table>
+        </Table>
+
+        <Table>
           <tr>
             {columns.map((column, i) => <td><Column cards={column} onCardClick={this.handleColumnClick(i)} /></td>)}
           </tr>
-        </table>
+        </Table>
+        <div style={{ height: "2em" }}></div>
         {inMotion && <Hand cards={inMotion} />}
       </div>
     )

@@ -20,3 +20,20 @@
 .App-link {
   color: #09d3ac;
 }
+
+li {
+  list-style: none;
+}
+
+ul {
+  margin: 0px;
+  padding: 0px;
+}
+
+td {
+  vertical-align: baseline;
+}
+
+button {
+  width: 5em;
+}
