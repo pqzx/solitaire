@@ -42,16 +42,6 @@ class Card {
 const isValidChild = (card1, card2) =>
   card1.suit !== card2.suit && card1.value !== 0 && card1.value === card2.value-1;
 
-
-//const isValidMove = (card1, card2) =>
-  /* refine this for all cases?
-  single card to single card on main board
-  ordered stack to single card on main board
-  card/stack to empty column
-  single card to free cell
-  valid next card to home position
-  collect 4 free dragons to single free cell */
-
 const Cardcomp = props => {
   if (props.card) {
     return (
@@ -105,12 +95,16 @@ class App extends React.Component {
   constructor(props) {
     super(props);
 
-    this.state = {
+    const state = {
       columns: deal(),
       freeCells: [null, null, null],
       flower: null,
       home: suits.map(suit => new Card(suit, 0)),
       inMotion: null,
+    }
+
+    this.state = {
+      history: [state],
     }
 
     this.handleColumnClick = this.handleColumnClick.bind(this);
@@ -119,8 +113,31 @@ class App extends React.Component {
     this.handleFlowerClick = this.handleFlowerClick.bind(this);
   }
 
+  getLastState = () => this.state.history.slice(-1)[0];
+
+  updateState = (state) => {
+    const {history} = this.state;
+    this.setState({
+      history: [...history, state]
+    });
+  }
+
+  rollBackMoves = n => () => {
+    // hard rewind to a previous state, subsequent states are lost
+    const history = this.state.history.slice(0,-n);
+    this.setState({
+      history: history,
+    });
+  }
+
+  goBackMoves = n => () => {
+    // previous state is accessed by adding to end of history
+    const state = this.state.history.slice(-n-1)[0];
+    this.updateState(state);
+  }
+
   handleColumnClick = columnIndex => cardIndex => () =>{
-    const {columns, inMotion} = this.state;
+    const {columns, inMotion, ...state} = this.getLastState();
     const pickedColumn = columns[columnIndex];
     const card1 = (inMotion && inMotion[0]) || null;
     const card2 = pickedColumn[cardIndex];
@@ -147,9 +164,10 @@ class App extends React.Component {
       : column
     )
 
-    this.setState({
+    this.updateState({
       inMotion: newInMotion,
       columns: newColumns,
+      ...state,
     })
   }
 
@@ -157,7 +175,7 @@ class App extends React.Component {
     // if cell is empty and inMotion card length = 1, move inmotion into cell
     // if cell is occupied and no inmotion cards, move card into inMotion * caveat doesn't work if cell contains set of dragons
     // if cell is occupied and inMotion cards in play, do nothing
-    const {freeCells, inMotion} = this.state;
+    const {freeCells, inMotion, ...state} = this.getLastState()
     const cell = freeCells[cellIndex];  
     
     const newCellState = (!cell && inMotion && inMotion.length === 1 && inMotion[0]) || 
@@ -171,14 +189,15 @@ class App extends React.Component {
 
     const newFreeCells = freeCells.map((cell, i) => i === cellIndex ? newCellState : cell);
 
-    this.setState({
+    this.updateState({
       freeCells: newFreeCells,
       inMotion: newInMotion,
+      ...state,
     })
   }
 
   handleHomeCellClick = cellIndex => () => {
-    const {home, inMotion} = this.state;
+    const {home, inMotion, ...state} = this.getLastState()
 
     if (!inMotion || inMotion.length !== 1) {
       return;
@@ -194,14 +213,15 @@ class App extends React.Component {
 
     const newHomeState = home.map((cell, i) => i === cellIndex ? newCellState : cell);
 
-    this.setState({
+    this.updateState({
       home: newHomeState,
       inMotion: newInMotion,
+      ...state,
     })
   }
 
   handleFlowerClick = () => {
-    const {inMotion} = this.state;
+    const {inMotion, flower, ...state} = this.getLastState()
     if (!inMotion || inMotion[0].suit !== '@') {
       return;
     };
@@ -209,21 +229,22 @@ class App extends React.Component {
     const newflower = inMotion[0];
     const newInMotion = null;
 
-    this.setState({
+    this.updateState({
       flower: newflower,
       inMotion: newInMotion,
+      ...state,
     });
   }
 
   allDragonsFree = dragon => {
-    const {freeCells, columns} = this.state;
+    const {freeCells, columns} = this.getLastState();
     const freeCards = freeCells.concat(columns.map(column => column.slice(-1)[0]));
     const freeDragons = freeCards.filter(card => card && card.suit === dragon);
     return freeDragons.length === 4 && freeCells.some(cell => cell === null || cell.suit === dragon);
   }
 
   handleDragonsClick = dragon => () => {
-    const {freeCells, columns} = this.state;
+    const {freeCells, columns, ...state} = this.getLastState();
 
     // remove all dragon cards from table
     const freeCellsNoDragon = freeCells.map(cell => cell && cell.suit === dragon ? null : cell);
@@ -238,19 +259,20 @@ class App extends React.Component {
     const freeIndex = freeCellsNoDragon.indexOf(null);
     const newFreeCells = freeCellsNoDragon.map((cell, i) => i === freeIndex ? new Card(`${dragon}*`, 0, false) : cell);
 
-    this.setState({
+    this.updateState({
       freeCells: newFreeCells,
       columns: newColumns,
+      ...state,
     });
   }
 
   isWinningState = () => {
-    const {columns} = this.state;
-    return columns.every(col => col.length===0);
+    const {columns, inMotion} = this.getLastState()
+    return !inMotion && columns.every(col => col.length===0);
   }
 
   render() {
-    const {columns, freeCells, flower, home, inMotion} = this.state;
+    const {columns, freeCells, flower, home, inMotion} = this.getLastState();
     const isWin = this.isWinningState();
     return (
       <div>
@@ -276,7 +298,10 @@ class App extends React.Component {
             <td>
               <Table>
                 <tr>
-                  <td>@: <Cardcomp card={flower} canMove={true} onClick={this.handleFlowerClick} /></td>
+                  <td><Cardcomp card={flower} canMove={true} onClick={this.handleFlowerClick} /></td>
+                </tr>
+                <tr>
+                  ^@
                 </tr>
               </Table>
             </td>
@@ -286,6 +311,10 @@ class App extends React.Component {
                   {home.map((cell, i) => (cell && <td><Cardcomp card={cell} canMove={true} onClick={this.handleHomeCellClick(i)} /></td>))}
                 </tr>
               </Table>
+            </td>
+            <td>
+              <button onClick={this.goBackMoves(1)}>undo</button><br/>
+              <button onClick={this.rollBackMoves(1)}>hard undo</button>
             </td>
           </tr>
         </Table>
