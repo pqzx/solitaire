@@ -110,10 +110,6 @@ class App extends React.Component {
       history: [state],
     }
 
-    // this.handleColumnClick = this.handleColumnClick.bind(this);
-    // this.handleFreeCellClick = this.handleFreeCellClick.bind(this);
-    // this.handleHomeCellClick = this.handleHomeCellClick.bind(this);
-    // this.handleFlowerClick = this.handleFlowerClick.bind(this);
   }
 
   getLastState = () => this.state.history.slice(-1)[0];
@@ -353,6 +349,26 @@ class App extends React.Component {
     })
   }
 
+  newGame = () => {
+    const state = {
+      columns: deal(),
+      freeCells: [null, null, null],
+      flower: null,
+      home: suits.map(suit => new Card(suit, 0)),
+      inMotion: null,
+    };
+
+    this.setState({
+      history: [state],
+    });
+  }
+
+  resetGame = () => {
+    const {history} = this.state;
+    const state = history[0];
+    this.updateState(state);
+  }
+
   render() {
     const {columns, freeCells, flower, home, inMotion} = this.getLastState();
     const isWin = this.isWinningState();
@@ -394,16 +410,21 @@ class App extends React.Component {
               </Table>
             </td>
             <td>
-              <button onClick={this.goBackMoves(1)}>undo</button><br/>
-              <button onClick={this.rollBackMoves(1)}>hard undo</button><br/>
+              <button onClick={this.resetGame}>reset game</button>
+              <button onClick={this.newGame}>new game</button><br/>
+              <button onClick={this.goBackMoves(1)}>"undo"</button>
+              <button onClick={this.rollBackMoves(1)}>undo</button><br/>
               <button onClick={this.autoComplete}>auto move</button>
             </td>
           </tr>
-        </Table>
-
-        <Table>
           <tr>
-            {columns.map((column, i) => <td><Column cards={column} onCardClick={this.handleColumnClick(i)} /></td>)}
+            <td colspan={3}>
+              <Table>
+                <tr>
+                  {columns.map((column, i) => <td><Column cards={column} onCardClick={this.handleColumnClick(i)} /></td>)}
+                </tr>
+              </Table>
+            </td>
           </tr>
         </Table>
         <div style={{ height: "2em" }}></div>
