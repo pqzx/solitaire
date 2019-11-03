@@ -2,14 +2,24 @@ import React from 'react';
 import { isEqual } from 'lodash';
 import './App.css';
 
-const suits = ['A', 'B', 'C'];
-const dragons = ['X', 'Y', 'Z'];
-const numbers = [...Array(10).keys()].slice(1);
+// game default quantities
+const nSuits = 3;
+const nDragons = 3;
+const nNumbers = 10;
+const nColumns = 8;
+const perDragon = 4; // number of cards for each dragon
 
-const createDeck = () => {
+const suitLetters = [...Array(15).keys()].map(x => (x+10).toString(36).toUpperCase());
+const dragonLetters = [...Array(15).keys()].map(x => (35-x).toString(36).toUpperCase());
+
+const getSuits = n => suitLetters.slice(0, n);
+const getDragons = n => dragonLetters.slice(0, n);
+const getNumbers = n => [...Array(n).keys()].slice(1);
+
+const createDeck = (dragons, cardsPerDragon, suits, numbers) => {
   // a deck is made up of 4 of each dragon, 1-9 for each suit and a flower card
   const cards = [
-    dragons.map(x => Array(4).fill(0).map(_ => new Card(x))),
+    dragons.map(x => Array(cardsPerDragon).fill(0).map(_ => new Card(x))),
     suits.map(x => numbers.map(y => new Card(x, y))),
     new Card('@'), // flower card
   ].flat(2);
@@ -21,11 +31,10 @@ const shuffleDeck = cards => {
   return cards.reduce((a, v) => a.splice(Math.floor(Math.random() * a.length), 0, v) && a, []);
 }
 
-const deal = () => {
-  // send cards to 8 columns
-  const cards = shuffleDeck(createDeck());
-  const cols = [...Array(8).keys()];
-  const board = cols.map(x => cards.filter((_, i) => (i + x) % 8 === 0));
+const deal = (cards, numberOfColumns) => {
+  // send cards to number of columns
+  const cols = [...Array(numberOfColumns).keys()];
+  const board = cols.map(x => cards.filter((_, i) => (i + x) % numberOfColumns === 0));
   return board;
 }
 
@@ -94,22 +103,123 @@ class Column extends React.Component {
   }
 }
 
+class Config extends React.Component {
+  constructor() {
+    super();
+
+    this.state = {
+      columns: nColumns,
+      suits: nSuits,
+      dragons: nDragons,
+      numbers: nNumbers,
+      cardsPerDragon: perDragon,
+    }
+
+    this.handleReset = this.handleReset.bind(this);
+    this.handleChange = this.handleChange.bind(this);
+    this.handleSubmit = this.handleSubmit.bind(this);
+  }
+
+  handleSubmit(event) {
+    const {dragons, suits, numbers, columns, cardsPerDragon} = this.state;
+    this.props.handleSubmit(suits, dragons, numbers, columns, cardsPerDragon)();
+    event.preventDefault();
+  }
+
+  handleChange(event) {
+    this.setState({
+      [event.target.name]: event.target.value
+    });
+  }
+
+  handleReset() {
+    this.setState({
+        columns: nColumns,
+        suits: nSuits,
+        dragons: nDragons,
+        numbers: nNumbers,
+    });
+  }
+
+  render() {
+    return (
+      <form onSubmit={this.handleSubmit} >
+        <table>
+          <tbody style={{ "text-align": "right" }}>
+            <tr>
+              <td>
+                <label>Suits: </label>
+                <input type="number" name="suits" min="0" value={this.state.suits} onChange={this.handleChange} />
+              </td>
+              <td>
+                <label>Dragons: </label>
+                <input type="number" name="dragons" min="0" value={this.state.dragons} onChange={this.handleChange} />
+              </td>
+              <td>
+                <label>Columns: </label>
+                <input type="number" name="columns" min="0" value={this.state.columns} onChange={this.handleChange}/>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label>Cards/suit: </label>
+                <input type="number" name="numbers" min="0" value={this.state.numbers} onChange={this.handleChange} />
+              </td>
+              <td>
+                <label>Cards/dragon: </label>
+                <input type="number" name="cardsPerDragon" min="0" value={this.state.cardsPerDragon} onChange={this.handleChange} />
+              </td>
+              <td>
+                <input type="submit" value="Save & restart" />
+                <button onClick={this.handleReset}>Defaults</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </form>
+    )
+  }
+}
+
 class App extends React.Component {
   constructor(props) {
     super(props);
 
-    const state = {
-      columns: deal(),
-      freeCells: [null, null, null],
-      flower: null,
-      home: suits.map(suit => new Card(suit, 0)),
-      inMotion: null,
-    }
+    const {state, dragons, suits, cardsPerDragon} = this.getStartingState();
 
     this.state = {
       history: [state],
+      dragons,
+      suits,
+      cardsPerDragon,
+    }
+    this.newGame = this.newGame.bind(this);
+  }
+
+  getStartingState = (numberOfSuits=nSuits,
+                   numberOfDragons=nDragons,
+                   numberOfNumbers=nNumbers,
+                   numberOfColumns=nColumns,
+                   cardsPerDragon=perDragon) => {
+
+    const suits = getSuits(numberOfSuits);
+    const dragons = getDragons(numberOfDragons);
+    const numbers = getNumbers(numberOfNumbers);
+
+    const deck = createDeck(dragons, cardsPerDragon, suits, numbers);
+    const columns = deal(shuffleDeck(deck), numberOfColumns);
+    const freeCells = Array(numberOfDragons).fill(null);
+    const home = suits.map(suit => new Card(suit, 0));
+
+    const state = {
+      columns,
+      freeCells,
+      home,
+      flower: null,
+      inMotion: null,
     }
 
+    return {state, dragons, suits, cardsPerDragon};
   }
 
   getLastState = () => this.state.history.slice(-1)[0];
@@ -244,10 +354,11 @@ class App extends React.Component {
 
   allDragonsFree = dragon => {
     const {freeCells, columns, inMotion} = this.getLastState();
+    const {cardsPerDragon} = this.state;
     const freeCards = freeCells.concat(columns.map(column => column.slice(-1)[0]));
     const freeDragons = freeCards.filter(card => card && card.suit === dragon);
     return !inMotion && 
-      freeDragons.length === 4 && 
+      freeDragons.length === cardsPerDragon && 
       freeCells.some(cell => cell === null || cell.suit === dragon);
   }
 
@@ -349,17 +460,25 @@ class App extends React.Component {
     })
   }
 
-  newGame = () => {
-    const state = {
-      columns: deal(),
-      freeCells: [null, null, null],
-      flower: null,
-      home: suits.map(suit => new Card(suit, 0)),
-      inMotion: null,
-    };
+  newGame = (numberOfSuits=nSuits,
+            numberOfDragons=nDragons,
+            numberOfNumbers=nNumbers,
+            numberOfColumns=nColumns,
+            numberPerDragon=perDragon) => () => {
+    
+    const {state, dragons, suits, cardsPerDragon} = this.getStartingState(
+      Number(numberOfSuits),
+      Number(numberOfDragons),
+      Number(numberOfNumbers),
+      Number(numberOfColumns),
+      Number(numberPerDragon),
+    );
 
     this.setState({
       history: [state],
+      dragons,
+      suits,
+      cardsPerDragon,
     });
   }
 
@@ -369,11 +488,20 @@ class App extends React.Component {
     this.updateState(state);
   }
 
+  toggleConfig = () => {
+    const {config} = this.state;
+    this.setState({
+      config: !config,
+    })
+  }
+
   render() {
     const {columns, freeCells, flower, home, inMotion} = this.getLastState();
+    const {dragons} = this.state;
     const isWin = this.isWinningState();
     return (
       <div>
+        {this.state.config && <Config handleSubmit={this.newGame}/>}
         <Table>
           <tr>
             <td>
@@ -411,14 +539,15 @@ class App extends React.Component {
             </td>
             <td>
               <button onClick={this.resetGame}>reset game</button>
-              <button onClick={this.newGame}>new game</button><br/>
+              <button onClick={this.newGame()}>new game</button><br/>
               <button onClick={this.goBackMoves(1)}>"undo"</button>
               <button onClick={this.rollBackMoves(1)}>undo</button><br/>
               <button onClick={this.autoComplete}>auto move</button>
+              <button onClick={this.toggleConfig}>settings</button>
             </td>
           </tr>
           <tr>
-            <td colspan={3}>
+            <td colSpan={3}>
               <Table>
                 <tr>
                   {columns.map((column, i) => <td><Column cards={column} onCardClick={this.handleColumnClick(i)} /></td>)}
