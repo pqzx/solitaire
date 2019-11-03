@@ -7,7 +7,7 @@ const nSuits = 3;
 const nDragons = 3;
 const nNumbers = 10;
 const nColumns = 8;
-const perDragon = 4; // number of cards for each dragon
+const cardsPerDragon = 4; // number of cards for each dragon
 
 const suitLetters = [...Array(26).keys()].map(x => (x+10).toString(36).toUpperCase());
 const dragonLetters = [...Array(26).keys()].map(x => (35-x).toString(36).toUpperCase());
@@ -112,7 +112,7 @@ class Config extends React.Component {
       suits: nSuits,
       dragons: nDragons,
       numbers: nNumbers,
-      cardsPerDragon: perDragon,
+      cardsPerDragon: cardsPerDragon,
     }
 
     this.handleReset = this.handleReset.bind(this);
@@ -122,14 +122,7 @@ class Config extends React.Component {
 
   handleSubmit(event) {
     const {dragons, suits, numbers, columns, cardsPerDragon} = this.state;
-    const settings = {
-      numberOfDragons: dragons,
-      numberOfSuits: suits,
-      numberOfNumbers: numbers,
-      numberOfColumns: columns,
-      numberPerDragon: cardsPerDragon,
-    }
-    this.props.handleSubmit(settings)();
+    this.props.handleSubmit(suits, dragons, columns, numbers, cardsPerDragon);
     event.preventDefault();
   }
 
@@ -152,7 +145,7 @@ class Config extends React.Component {
     return (
       <form onSubmit={this.handleSubmit} >
         <table>
-          <tbody style={{ "text-align": "right" }}>
+          <tbody style={{ textAlign: "right" }}>
             <tr>
               <td>
                 <label>Suits: </label>
@@ -192,24 +185,25 @@ class App extends React.Component {
   constructor(props) {
     super(props);
 
-    const {state, dragons, suits, cardsPerDragon} = this.getStartingState();
+    const {state, dragons, suits} = this.getStartingState(nSuits, nDragons, nColumns, nNumbers, cardsPerDragon);
 
     this.state = {
       history: [state],
       dragons,
       suits,
-      cardsPerDragon,
-      settings: {},
+      cardsPerDragon: cardsPerDragon,
+      settings: {
+        nSuits: nSuits,
+        nDragons: nDragons,
+        nColumns: nColumns,
+        nNumbers: nNumbers,
+        cardsPerDragon: cardsPerDragon,
+      },
     }
-    this.newGame = this.newGame.bind(this);
+    this.updateSettingsAndRestart = this.updateSettingsAndRestart.bind(this);
   }
 
-  getStartingState = (numberOfSuits=nSuits,
-                   numberOfDragons=nDragons,
-                   numberOfNumbers=nNumbers,
-                   numberOfColumns=nColumns,
-                   cardsPerDragon=perDragon) => {
-
+  getStartingState = (numberOfSuits, numberOfDragons, numberOfColumns, numberOfNumbers, cardsPerDragon) => {
     const suits = getSuits(numberOfSuits);
     const dragons = getDragons(numberOfDragons);
     const numbers = getNumbers(numberOfNumbers);
@@ -227,7 +221,7 @@ class App extends React.Component {
       inMotion: null,
     }
 
-    return {state, dragons, suits, cardsPerDragon};
+    return {state, dragons, suits};
   }
 
   getLastState = () => this.state.history.slice(-1)[0];
@@ -400,7 +394,6 @@ class App extends React.Component {
   autoComplete = () => {
     // when free cards on the table are the next card for home spots, move them there
     const {inMotion, columns, freeCells, home} = this.getLastState();
-    const {suits} = this.state;
     if (inMotion) {
       return; // can't autocomplete when holding a card
     }
@@ -465,41 +458,15 @@ class App extends React.Component {
     })
   }
 
-  newGame = (settings) => () => {
-    let {
-      numberOfSuits,
-      numberOfDragons,
-      numberOfNumbers,
-      numberOfColumns,
-      numberPerDragon,
-    } = settings;
-
-    numberOfSuits = Boolean(String(numberOfSuits)) ? Number(numberOfSuits) : nSuits;
-    numberOfDragons = Boolean(String(numberOfDragons)) ? Number(numberOfDragons) : nDragons;
-    numberOfNumbers = Boolean(String(numberOfNumbers)) ? Number(numberOfNumbers) : nNumbers;
-    numberOfColumns = Boolean(String(numberOfColumns)) ? Number(numberOfColumns) : nColumns;
-    numberPerDragon = Boolean(String(numberPerDragon)) ? Number(numberPerDragon) : perDragon;
-    
-    const {state, dragons, suits, cardsPerDragon} = this.getStartingState(
-      numberOfSuits,
-      numberOfDragons,
-      numberOfNumbers,
-      numberOfColumns,
-      numberPerDragon,
-    );
+  newGame = () => {
+    const {nSuits, nDragons, nColumns, nNumbers, cardsPerDragon} = this.state.settings;
+    const {state, dragons, suits} = this.getStartingState(nSuits, nDragons, nColumns, nNumbers, cardsPerDragon);
 
     this.setState({
       history: [state],
       dragons,
       suits,
-      cardsPerDragon,
-      settings: {
-        numberOfSuits,
-        numberOfDragons,
-        numberOfNumbers,
-        numberOfColumns,
-        numberPerDragon,
-      }
+      cardsPerDragon: cardsPerDragon,
     });
   }
 
@@ -507,6 +474,17 @@ class App extends React.Component {
     const {history} = this.state;
     const state = history[0];
     this.updateState(state);
+  }
+
+  updateSettingsAndRestart = (nSuits, nDragons, nColumns, nNumbers, cardsPerDragon) => {
+    const settings = {
+      nSuits: Number(nSuits),
+      nDragons: Number(nDragons),
+      nColumns: Number(nColumns),
+      nNumbers: Number(nNumbers),
+      cardsPerDragon: Number(cardsPerDragon),
+    }
+    this.setState({settings}, this.newGame);
   }
 
   toggleConfig = () => {
@@ -522,7 +500,7 @@ class App extends React.Component {
     const isWin = this.isWinningState();
     return (
       <div>
-        {this.state.config && <Config handleSubmit={this.newGame}/>}
+        {this.state.config && <Config handleSubmit={this.updateSettingsAndRestart}/>}
         <Table>
           <tr>
             <td>
@@ -560,7 +538,7 @@ class App extends React.Component {
             </td>
             <td>
               <button onClick={this.resetGame}>reset game</button>
-              <button onClick={this.newGame(this.state.settings)}>new game</button><br/>
+              <button onClick={this.newGame}>new game</button><br/>
               <button onClick={this.goBackMoves(1)}>"undo"</button>
               <button onClick={this.rollBackMoves(1)}>undo</button><br/>
               <button onClick={this.autoComplete}>auto move</button>
