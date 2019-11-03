@@ -9,8 +9,8 @@ const nNumbers = 10;
 const nColumns = 8;
 const perDragon = 4; // number of cards for each dragon
 
-const suitLetters = [...Array(15).keys()].map(x => (x+10).toString(36).toUpperCase());
-const dragonLetters = [...Array(15).keys()].map(x => (35-x).toString(36).toUpperCase());
+const suitLetters = [...Array(26).keys()].map(x => (x+10).toString(36).toUpperCase());
+const dragonLetters = [...Array(26).keys()].map(x => (35-x).toString(36).toUpperCase());
 
 const getSuits = n => suitLetters.slice(0, n);
 const getDragons = n => dragonLetters.slice(0, n);
@@ -400,8 +400,17 @@ class App extends React.Component {
   autoComplete = () => {
     // when free cards on the table are the next card for home spots, move them there
     const {inMotion, columns, freeCells, home} = this.getLastState();
+    const {suits} = this.state;
     if (inMotion) {
       return; // can't autocomplete when holding a card
+    }
+
+    const getHomeIndex = (card) =>
+      home.map(cell => cell.suit).indexOf(card.suit);
+
+    const canGoHome = (homeIndex, card) => {
+      const homeCard = home[homeIndex];
+      return homeCard.value + 1 === card.value;
     }
 
     columns.forEach((column, index) => {
@@ -409,62 +418,50 @@ class App extends React.Component {
         return;
       }
       const lastCard = column.slice(-1)[0];
-      switch (lastCard.suit) {
-        case '@': // TODO: fix hardcoding
-          [
-            this.handleColumnClick(index)(column.length-1),
-            this.handleFlowerClick,
-          ].reduce((p, f) => p.then(f), Promise.resolve());
-          break;
-        case 'A':
-        case 'B':
-        case 'C':
-          // find home column that matches suit
-          let homeIndex = home
-            .map((cell, index) => cell.suit === lastCard.suit ? index : null)
-            .filter(x => x !== null)[0];
-          if (! (home[homeIndex].value + 1 === lastCard.value)) {
-            return;
-          }
-          [
-            this.handleColumnClick(index)(column.length-1),
-            this.handleHomeCellClick(homeIndex)
-          ].reduce((p, f) => p.then(f), Promise.resolve());
-          break;
-        default:
-          break;
+      if (lastCard.suit === '@') {
+        [
+          this.handleColumnClick(index)(column.length-1),
+          this.handleFlowerClick,
+        ].reduce((p, f) => p.then(f), Promise.resolve());
+        return;
       }
+
+      const homeIndex = getHomeIndex(lastCard);
+      if (homeIndex < 0) {
+        return;
+      }
+
+      canGoHome(homeIndex, lastCard) &&
+      [
+        this.handleColumnClick(index)(column.length-1),
+        this.handleHomeCellClick(homeIndex)
+      ].reduce((p, f) => p.then(f), Promise.resolve());
+
     })
 
     freeCells.forEach((freeCell, index) => {
       if (!freeCell) {
         return;
       }
-      switch (freeCell.suit) {
-        case '@': // TODO: fix hardcoding
-          [
-            this.handleFreeCellClick(index),
-            this.handleFlowerClick,
-          ].reduce((p, f) => p.then(f), Promise.resolve());
-          break;
-        case 'A':
-        case 'B':
-        case 'C':
-          // find home column that matches suit
-          let homeIndex = home
-            .map((cell, index) => cell.suit === freeCell.suit ? index : null)
-            .filter(x => x !== null)[0];
-          if (! (home[homeIndex].value + 1 === freeCell.value)) {
-            return;
-          }
-          [
-            this.handleFreeCellClick(index),
-            this.handleHomeCellClick(homeIndex)
-          ].reduce((p, f) => p.then(f), Promise.resolve());
-          break;
-        default:
-          break;
+
+      if (freeCell.suit === '@') {
+        [
+          this.handleFreeCellClick(index),
+          this.handleFlowerClick,
+        ].reduce((p, f) => p.then(f), Promise.resolve());
+        return;
       }
+
+      const homeIndex = getHomeIndex(freeCell);
+      if (homeIndex < 0) {
+        return;
+      }
+
+      canGoHome(homeIndex, freeCell) &&
+      [
+        this.handleFreeCellClick(index),
+        this.handleHomeCellClick(homeIndex)
+      ].reduce((p, f) => p.then(f), Promise.resolve());
     })
   }
 
@@ -477,11 +474,11 @@ class App extends React.Component {
       numberPerDragon,
     } = settings;
 
-    numberOfSuits = numberOfSuits ? Number(numberOfSuits) : nSuits;
-    numberOfDragons = numberOfDragons ? Number(numberOfDragons) : nDragons;
-    numberOfNumbers = numberOfNumbers ? Number(numberOfNumbers) : nNumbers;
-    numberOfColumns = numberOfColumns ? Number(numberOfColumns) : nColumns;
-    numberPerDragon = numberPerDragon ? Number(numberPerDragon) : perDragon;
+    numberOfSuits = Boolean(String(numberOfSuits)) ? Number(numberOfSuits) : nSuits;
+    numberOfDragons = Boolean(String(numberOfDragons)) ? Number(numberOfDragons) : nDragons;
+    numberOfNumbers = Boolean(String(numberOfNumbers)) ? Number(numberOfNumbers) : nNumbers;
+    numberOfColumns = Boolean(String(numberOfColumns)) ? Number(numberOfColumns) : nColumns;
+    numberPerDragon = Boolean(String(numberPerDragon)) ? Number(numberPerDragon) : perDragon;
     
     const {state, dragons, suits, cardsPerDragon} = this.getStartingState(
       numberOfSuits,
