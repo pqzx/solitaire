@@ -122,7 +122,14 @@ class Config extends React.Component {
 
   handleSubmit(event) {
     const {dragons, suits, numbers, columns, cardsPerDragon} = this.state;
-    this.props.handleSubmit(suits, dragons, numbers, columns, cardsPerDragon)();
+    const settings = {
+      numberOfDragons: dragons,
+      numberOfSuits: suits,
+      numberOfNumbers: numbers,
+      numberOfColumns: columns,
+      numberPerDragon: cardsPerDragon,
+    }
+    this.props.handleSubmit(settings)();
     event.preventDefault();
   }
 
@@ -171,7 +178,7 @@ class Config extends React.Component {
               </td>
               <td>
                 <input type="submit" value="Save & restart" />
-                <button onClick={this.handleReset}>Defaults</button>
+                <button type="button" onClick={this.handleReset}>Defaults</button>
               </td>
             </tr>
           </tbody>
@@ -192,6 +199,7 @@ class App extends React.Component {
       dragons,
       suits,
       cardsPerDragon,
+      settings: {},
     }
     this.newGame = this.newGame.bind(this);
   }
@@ -460,18 +468,27 @@ class App extends React.Component {
     })
   }
 
-  newGame = (numberOfSuits=nSuits,
-            numberOfDragons=nDragons,
-            numberOfNumbers=nNumbers,
-            numberOfColumns=nColumns,
-            numberPerDragon=perDragon) => () => {
+  newGame = (settings) => () => {
+    let {
+      numberOfSuits,
+      numberOfDragons,
+      numberOfNumbers,
+      numberOfColumns,
+      numberPerDragon,
+    } = settings;
+
+    numberOfSuits = numberOfSuits ? Number(numberOfSuits) : nSuits;
+    numberOfDragons = numberOfDragons ? Number(numberOfDragons) : nDragons;
+    numberOfNumbers = numberOfNumbers ? Number(numberOfNumbers) : nNumbers;
+    numberOfColumns = numberOfColumns ? Number(numberOfColumns) : nColumns;
+    numberPerDragon = numberPerDragon ? Number(numberPerDragon) : perDragon;
     
     const {state, dragons, suits, cardsPerDragon} = this.getStartingState(
-      Number(numberOfSuits),
-      Number(numberOfDragons),
-      Number(numberOfNumbers),
-      Number(numberOfColumns),
-      Number(numberPerDragon),
+      numberOfSuits,
+      numberOfDragons,
+      numberOfNumbers,
+      numberOfColumns,
+      numberPerDragon,
     );
 
     this.setState({
@@ -479,6 +496,13 @@ class App extends React.Component {
       dragons,
       suits,
       cardsPerDragon,
+      settings: {
+        numberOfSuits,
+        numberOfDragons,
+        numberOfNumbers,
+        numberOfColumns,
+        numberPerDragon,
+      }
     });
   }
 
@@ -539,7 +563,7 @@ class App extends React.Component {
             </td>
             <td>
               <button onClick={this.resetGame}>reset game</button>
-              <button onClick={this.newGame()}>new game</button><br/>
+              <button onClick={this.newGame(this.state.settings)}>new game</button><br/>
               <button onClick={this.goBackMoves(1)}>"undo"</button>
               <button onClick={this.rollBackMoves(1)}>undo</button><br/>
               <button onClick={this.autoComplete}>auto move</button>
